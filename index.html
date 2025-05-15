@@ -390,48 +390,51 @@
                 });
             });
             
-            function insertLetter(letter) {
-                // 获取所有未解决的棋盘
-                const unsolvedBoards = targetWords
-                    .filter(t => !t.solved)
-                    .map((_, index) => octordleContainer.querySelector(`.board-container:nth-child(${index + 1}) .board`));
-                
-                // 在所有未解决的棋盘上插入字母
-                unsolvedBoards.forEach(board => {
-                    const row = board.querySelector(`.row[data-row="${currentAttempt}"]`);
-                    if (!row) return;
-                    
-                    const emptyTile = Array.from(row.children).find(tile => 
-                        tile.dataset.state === 'empty' || tile.dataset.state === 'tbd'
-                    );
-                    
-                    if (emptyTile) {
-                        emptyTile.textContent = letter;
-                        emptyTile.dataset.state = 'tbd';
-                    }
-                });
-            }
-            
-            function deleteLetter() {
-                const unsolvedBoards = targetWords
-                    .filter(t => !t.solved)
-                    .map((_, index) => octordleContainer.querySelector(`.board-container:nth-child(${index + 1}) .board`));
-                
-                unsolvedBoards.forEach(board => {
-                    const row = board.querySelector(`.row[data-row="${currentAttempt}"]`);
-                    if (!row) return;
-                    
-                    const filledTiles = Array.from(row.children).filter(tile => 
-                        tile.textContent !== ''
-                    );
-                    
-                    if (filledTiles.length > 0) {
-                        const lastTile = filledTiles[filledTiles.length - 1];
-                        lastTile.textContent = '';
-                        lastTile.dataset.state = 'empty';
-                    }
-                });
-            }
+function insertLetter(letter) {
+    // 获取所有未解决的棋盘
+    const unsolvedBoards = targetWords
+        .filter(t => !t.solved)
+        .map((_, index) => octordleContainer.querySelector(`.board-container:nth-child(${index + 1}) .board`));
+    
+    // 在所有未解决的棋盘上插入字母
+    unsolvedBoards.forEach(board => {
+        const row = board.querySelector(`.row[data-row="${currentAttempt}"]`);
+        if (!row) return;
+        
+        // 找到第一个空白的瓷砖（仅限empty状态）
+        const emptyTileIndex = Array.from(row.children).findIndex(tile => 
+            tile.dataset.state === 'empty'
+        );
+        
+        if (emptyTileIndex !== -1) {
+            const emptyTile = row.children[emptyTileIndex];
+            emptyTile.textContent = letter;
+            emptyTile.dataset.state = 'tbd';
+        }
+    });
+}
+
+function deleteLetter() {
+    const unsolvedBoards = targetWords
+        .filter(t => !t.solved)
+        .map((_, index) => octordleContainer.querySelector(`.board-container:nth-child(${index + 1}) .board`));
+    
+    unsolvedBoards.forEach(board => {
+        const row = board.querySelector(`.row[data-row="${currentAttempt}"]`);
+        if (!row) return;
+        
+        // 找到最后一个有内容的瓷砖
+        const filledTiles = Array.from(row.children).filter(tile => 
+            tile.textContent !== ''
+        );
+        
+        if (filledTiles.length > 0) {
+            const lastTile = filledTiles[filledTiles.length - 1];
+            lastTile.textContent = '';
+            lastTile.dataset.state = 'empty';
+        }
+    });
+}
             
             function submitGuess() {
                 const firstBoard = octordleContainer.querySelector('.board-container:first-child .board');

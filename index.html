@@ -383,35 +383,34 @@
             });
             
             function insertLetter(letter) {
-                const currentRow = octordleContainer.querySelector(`.board [data-row="${currentAttempt}"]`);
-                if (!currentRow) {
-                    const activeRow = Array.from(octordleContainer.querySelectorAll('.row'))
-                        .find(row => 
-                            row.parentNode.dataset.index === '0' && 
-                            Array.from(row.children).some(tile => tile.dataset.state === 'tbd')
-                        );
-                    
-                    if (!activeRow || activeRow.children[4].textContent) return;
-                }
-                
-                const firstBoard = octordleContainer.querySelector('.board-container:first-child .board');
-                const row = firstBoard.children[currentAttempt];
-                const emptyTile = Array.from(row.children).find(tile => tile.textContent === '');
-                if (emptyTile) {
-                    emptyTile.textContent = letter;
-                    emptyTile.dataset.state = 'tbd';
-                }
+                const unsolvedBoards = targetWords
+                    .filter(t => !t.solved)
+                    .map((t, index) => octordleContainer.querySelector(`.board-container:nth-child(${index + 1}) .board`));
+    
+                unsolvedBoards.forEach(board => {
+                    const row = board.children[currentAttempt];
+                    const emptyTile = Array.from(row.children).find(tile => tile.textContent === '');
+                    if (emptyTile) {
+                        emptyTile.textContent = letter;
+                        emptyTile.dataset.state = 'tbd';
+                    }
+                });
             }
-            
+    
             function deleteLetter() {
-                const firstBoard = octordleContainer.querySelector('.board-container:first-child .board');
-                const row = firstBoard.children[currentAttempt];
-                const filledTiles = Array.from(row.children).filter(tile => tile.textContent);
-                if (filledTiles.length > 0) {
-                    const lastTile = filledTiles[filledTiles.length - 1];
-                    lastTile.textContent = '';
-                    lastTile.dataset.state = 'empty';
-                }
+                const unsolvedBoards = targetWords
+                    .filter(t => !t.solved)
+                    .map((t, index) => octordleContainer.querySelector(`.board-container:nth-child(${index + 1}) .board`));
+    
+                unsolvedBoards.forEach(board => {
+                    const row = board.children[currentAttempt];
+                    const filledTiles = Array.from(row.children).filter(tile => tile.textContent);
+                    if (filledTiles.length > 0) {
+                        const lastTile = filledTiles[filledTiles.length - 1];
+                        lastTile.textContent = '';
+                        lastTile.dataset.state = 'empty';
+                    }
+                });
             }
             
             function submitGuess() {

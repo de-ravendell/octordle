@@ -321,6 +321,7 @@
                     for (let r = 0; r < MAX_ATTEMPTS; r++) {
                         const row = document.createElement('div');
                         row.className = 'row';
+                        row.dataset.row = r;
                         
                         for (let c = 0; c < 5; c++) {
                             const tile = document.createElement('div');
@@ -343,22 +344,29 @@
             function updateKeyboardStates(guess, results) {
                 const keyStates = {};
                 
+                // 计算每个字母的最高状态（correct > present > absent）
                 results.forEach((result, i) => {
                     const letter = guess[i].toUpperCase();
-                    if (!keyStates[letter] || result === 'correct') {
+                    if (!keyStates[letter] || 
+                        (result === 'correct') || 
+                        (result === 'present' && keyStates[letter] !== 'correct')) {
                         keyStates[letter] = result;
-                    } else if (result === 'present' && keyStates[letter] !== 'correct') {
-                        keyStates[letter] = 'present';
-                    } else if (!keyStates[letter]) {
-                        keyStates[letter] = 'absent';
                     }
                 });
                 
+                // 更新键盘按键状态
                 Object.entries(keyStates).forEach(([letter, state]) => {
                     const key = document.querySelector(`.key[data-key="${letter}"]`);
-                    if (key && (!key.dataset.state || state === 'correct' || 
-                        (state === 'present' && key.dataset.state !== 'correct'))) {
+                    if (key) {
                         key.dataset.state = state;
+                        // 立即更新颜色
+                        if (state === 'correct') {
+                            key.style.backgroundColor = '#6aaa64';
+                        } else if (state === 'present') {
+                            key.style.backgroundColor = '#c9b458';
+                        } else if (state === 'absent') {
+                            key.style.backgroundColor = '#787c7e';
+                        }
                     }
                 });
             }
@@ -383,28 +391,40 @@
             });
             
             function insertLetter(letter) {
+                // 获取所有未解决的棋盘
                 const unsolvedBoards = targetWords
                     .filter(t => !t.solved)
-                    .map((t, index) => octordleContainer.querySelector(`.board-container:nth-child(${index + 1}) .board`));
-    
+                    .map((_, index) => octordleContainer.querySelector(`.board-container:nth-child(${index + 1}) .board`));
+                
+                // 在所有未解决的棋盘上插入字母
                 unsolvedBoards.forEach(board => {
-                    const row = board.children[currentAttempt];
-                    const emptyTile = Array.from(row.children).find(tile => tile.textContent === '');
+                    const row = board.querySelector(`.row[data-row="${currentAttempt}"]`);
+                    if (!row) return;
+                    
+                    const emptyTile = Array.from(row.children).find(tile => 
+                        tile.dataset.state === 'empty' || tile.dataset.state === 'tbd'
+                    );
+                    
                     if (emptyTile) {
                         emptyTile.textContent = letter;
                         emptyTile.dataset.state = 'tbd';
                     }
                 });
             }
-    
+            
             function deleteLetter() {
                 const unsolvedBoards = targetWords
                     .filter(t => !t.solved)
-                    .map((t, index) => octordleContainer.querySelector(`.board-container:nth-child(${index + 1}) .board`));
-    
+                    .map((_, index) => octordleContainer.querySelector(`.board-container:nth-child(${index + 1}) .board`));
+                
                 unsolvedBoards.forEach(board => {
-                    const row = board.children[currentAttempt];
-                    const filledTiles = Array.from(row.children).filter(tile => tile.textContent);
+                    const row = board.querySelector(`.row[data-row="${currentAttempt}"]`);
+                    if (!row) return;
+                    
+                    const filledTiles = Array.from(row.children).filter(tile => 
+                        tile.textContent !== ''
+                    );
+                    
                     if (filledTiles.length > 0) {
                         const lastTile = filledTiles[filledTiles.length - 1];
                         lastTile.textContent = '';
@@ -415,33 +435,41 @@
             
             function submitGuess() {
                 const firstBoard = octordleContainer.querySelector('.board-container:first-child .board');
-                const row = firstBoard.children[currentAttempt];
+                const row = firstBoard.querySelector(`.row[data-row="${currentAttempt}"]`);
+                if (!row) return;
+    
                 const guess = Array.from(row.children).map(t => t.textContent).join('').toLowerCase();
-                
+    
                 if (guess.length !== 5) return showMessage('Too short');
                 if (!wordList.includes(guess)) return showMessage('Not in list');
-                
+    
                 let remainingWords = targetWords.filter(t => !t.solved);
                 if (remainingWords.length === 0) return;
-                
+    
                 remainingWords.forEach(target => {
                     const result = checkGuess(guess, target.word);
                     target.results = target.results || [];
                     target.results[currentAttempt] = result;
-                    
-                    const board = octordleContainer.querySelector(`.board-container:nth-child(${targetWords.indexOf(target) + 1}) .board`);
-                    const boardRow = board.children[currentAttempt];
-                    
+        
+                    const boardIndex = targetWords.indexOf(target) + 1;
+                    const board = octordleContainer.querySelector(`.board-container:nth-child(${boardIndex}) .board`);
+                    const boardRow = board.querySelector(`.row[data-row="${currentAttempt}"]`);
+        
                     result.forEach((state, i) => {
-                        boardRow.children[i].dataset.state = state;
-                        boardRow.children[i].textContent = guess[i].toUpperCase();
+                        const tile = boardRow.children[i];
+                        tile.dataset.state = state;
+                        tile.textContent = guess[i].toUpperCase();
+            
+                        tile.style.transition = 'background-color 0.5s ease';
                     });
-                    
+        
                     if (guess === target.word) target.solved = true;
                 });
-                
-                updateKeyboardStates(guess, targetWords.flatMap(t => t.results[currentAttempt] || []));
-                
+    
+ 
+                const allResults = remainingWords.flatMap(t => t.results[currentAttempt] || []);
+                updateKeyboardStates(guess, allResults);
+    
                 currentAttempt++;
                 checkGameOver();
             }
@@ -450,19 +478,22 @@
                 let targetLetters = target.split('');
                 let result = Array(5).fill('absent');
                 
+                // 先检查正确位置的字母
                 guess.split('').forEach((letter, i) => {
                     if (letter === targetLetters[i]) {
                         result[i] = 'correct';
-                        targetLetters[i] = null;
+                        targetLetters[i] = null; // 标记为已匹配
                     }
                 });
                 
+                // 再检查存在但位置错误的字母
                 guess.split('').forEach((letter, i) => {
                     if (result[i] === 'correct') return;
+                    
                     const index = targetLetters.indexOf(letter);
                     if (index > -1) {
                         result[i] = 'present';
-                        targetLetters[index] = null;
+                        targetLetters[index] = null; // 标记为已匹配
                     }
                 });
                 
